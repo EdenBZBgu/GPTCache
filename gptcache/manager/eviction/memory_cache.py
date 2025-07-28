@@ -1,5 +1,5 @@
 from typing import Any, Callable, List
-
+from CostAwarePolicy import CostAwarePolicy
 import cachetools
 
 from gptcache.manager.eviction.base import EvictionBase
@@ -49,6 +49,12 @@ class MemoryCacheEviction(EvictionBase):
             self._cache = cachetools.FIFOCache(maxsize=maxsize, **kwargs)
         elif self._policy == "RR":
             self._cache = cachetools.RRCache(maxsize=maxsize, **kwargs)
+        elif self._policy == "COSTAWARE":
+            self._cache = CostAwarePolicy(
+                maxsize=maxsize,
+                alpha=kwargs.get("alpha", 1.0),
+                beta=kwargs.get("beta", 1.0)
+            )
         else:
             raise ValueError(f"Unknown policy {policy}")
 
