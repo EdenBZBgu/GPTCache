@@ -8,7 +8,7 @@ import requests
 
 from gptcache.manager.eviction import EvictionBase
 from gptcache.manager.eviction.distributed_cache import NoOpEviction
-from gptcache.manager.eviction_manager import EvictionManager
+from gptcache.manager.cost_aware_data_manager import EvictionManager
 from gptcache.manager.object_data.base import ObjectBase
 from gptcache.manager.scalar_data.base import (
     CacheStorage,

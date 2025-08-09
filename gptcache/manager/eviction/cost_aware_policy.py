@@ -177,7 +177,8 @@ class CostAwareCache:
                  cost_weight: float = 1.0,
                  frequency_weight: float = 0.5,
                  recency_weight: float = 0.3,
-                 ewma_alpha: float = 0.1):
+                 ewma_alpha: float = 0.1,
+                 on_evict: Optional[Callable[[str, CacheItem], None]] = None):
         """
         Initialize cost-aware cache.
 
@@ -189,6 +190,7 @@ class CostAwareCache:
             frequency_weight: Weight for access frequency
             recency_weight: Weight for access recency
             ewma_alpha: EWMA decay factor for hit rate tracking
+            on_evict: Optional callback called as on_evict(key, CacheItem) when an item is removed
         """
         self.maxsize = maxsize
         self.cost_function = cost_function or CostFunction()
@@ -211,6 +213,9 @@ class CostAwareCache:
         self.misses = 0
         self.total_cost_saved = 0.0
         self.evictions = 0
+
+        # optional eviction callback
+        self.on_evict = on_evict
 
     def _current_time(self) -> float:
         """Get current timestamp."""
@@ -397,14 +402,24 @@ class CostAwareCache:
         return False
 
     def _remove_item(self, key: str):
-        """Remove item from cache and heap."""
+        """Remove item from cache and heap and call on_evict if provided."""
+        item = None
         if key in self.data:
+            item = self.data[key]
             del self.data[key]
             self.evictions += 1
 
         if key in self.heap_map:
             self.heap_map[key].removed = True
             del self.heap_map[key]
+
+        # call optional callback (use try/except so eviction can't break runtime)
+        if self.on_evict is not None and item is not None:
+            try:
+                # Call without lock to avoid deadlocks if callback interacts with other systems
+                self.on_evict(key, item)
+            except Exception:
+                logger.exception("on_evict callback raised for key=%s", key)
 
     def clear(self):
         """Clear entire cache."""
