@@ -1,6 +1,7 @@
 import time
+from cachetools import Cache
 
-class CostAwarePolicy:
+class CostAwarePolicy(Cache):
     def __init__(self, maxsize, alpha=1.0, beta=1.0):
         """
         maxsize: max number of entries
