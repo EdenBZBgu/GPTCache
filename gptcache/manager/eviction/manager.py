@@ -14,11 +14,11 @@ class EvictionBase:
             "EvictionBase is designed to be instantiated, "
             "please using the `EvictionBase.get(name, policy, maxsize, clean_size)`."
         )
-
+    # added default option that policy = COSTAWARE and initialize
     @staticmethod
     def get(
         name: str,
-        policy: str = "LRU",
+        policy: str = "cost_aware",
         maxsize: int = 1000,
         clean_size: int = 0,
         on_evict: Callable[[List[Any]], None] = None,
@@ -27,9 +27,12 @@ class EvictionBase:
         if not clean_size:
             clean_size = int(maxsize * 0.2)
         if name in "memory":
-            from gptcache.manager.eviction.memory_cache import MemoryCacheEviction
-
-            eviction_base = MemoryCacheEviction(
+            if policy.upper() == "cost_aware":
+                from gptcache.manager.eviction.cost_aware_policy import CostAwareCache
+                eviction_base = CostAwareCache(...)
+            else:
+                from gptcache.manager.eviction.memory_cache import MemoryCacheEviction
+                eviction_base = MemoryCacheEviction(
                 policy, maxsize, clean_size, on_evict, **kwargs
             )
             return eviction_base

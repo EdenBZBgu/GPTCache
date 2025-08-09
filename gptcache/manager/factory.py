@@ -122,7 +122,7 @@ def manager_factory(manager="map",
         return get_data_manager(s, v, o, None,
                                 eviction_params.get("max_size", 1000),
                                 eviction_params.get("clean_size", None),
-                                eviction_params.get("eviction", "LRU"),)
+                                eviction_params.get("eviction", "cost_aware"),)
 
     e = EvictionBase(
         name=eviction_manager,
@@ -138,7 +138,7 @@ def get_data_manager(
         eviction_base: Union[EvictionBase, str] = None,
         max_size: int = 1000,
         clean_size=None,
-        eviction: str = "LRU",
+        eviction: str = "cost_aware",
         data_path: str = "data_map.txt",
         get_data_container: Callable = None,
 ):
