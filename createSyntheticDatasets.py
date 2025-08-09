@@ -6,7 +6,7 @@ import os
 OUTPUT_DIR = "synthetic_datasets"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-TARGET_SIZES_MB = [25]
+TARGET_SIZES_MB = [25,40,60,90]
 LONG_REPEAT_WEIGHT = 5  # Long prompts ~5x more frequent than short
 
 # Short prompt topics (distinct from long prompts)
