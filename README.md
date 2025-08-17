@@ -400,3 +400,128 @@ Coming soon! [Stay tuned!](https://twitter.com/zilliz_universe)
 We are extremely open to contributions, be it through new features, enhanced infrastructure, or improved documentation.
 
 For comprehensive instructions on how to contribute, please refer to our [contribution guide](docs/contributing.md).
+
+## Cost-Aware Eviction — Full Public Testing & Benchmarking Guide
+
+This document contains everything a user needs to test, validate and benchmark the **cost-aware eviction** feature you added to GPTCache. It includes:
+
+- Usage & install instructions (two paths: **OpenAI** and **HuggingFace/local**)
+- Demo script to run a small workload and observe metrics
+- Extensive pytest-based unit and integration tests (files under `tests/`)
+- Benchmark script that compares **Cost-Aware** vs **LRU** under synthetic workloads
+- CI / GitHub Actions example to run tests on push
+
+Drop these files directly into your repository and follow the commands below.
+
+---
+
+## Directory layout (what to add to repo)
+
+```
+gptcache/
+  manager/
+    eviction/
+      cost_aware.py                
+    data_manager/
+      cost_aware_data_manager.py  
+
+tests/
+  test_cost_aware_unit.py
+  test_cost_aware_integration.py
+
+benchmarks/
+  benchmark_compare.py
+
+demo/
+  demo_run.py
+
+.github/
+  workflows/
+    ci.yml
+
+README_COST_AWARE.md
+.env.example
+run_benchmarks.sh
+```
+
+---
+
+# Quick prerequisites
+
+1. Clone your repository (with the new files present).
+2. Create a virtualenv and install dependencies. Example (recommended):
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -U pip
+pip install pytest cachetools pytest-timeout
+# For HuggingFace/local demo (optional):
+pip install transformers torch
+# For OpenAI demo (if you want to call the real API):
+pip install openai
+```
+
+Optional (for richer benchmarks): `pip install pytest-benchmark` but the provided benchmark script does not require it.
+
+Create `.env` from `.env.example` and set `OPENAI_API_KEY` if you want to run the OpenAI path.
+
+---
+
+```markdown
+# Cost-Aware Eviction — Demo & Tests
+
+This repo extension implements a cost-aware eviction policy for GPTCache.
+
+## Two usage modes
+
+1. **OpenAI (paid)** — If you have an OpenAI API key, you can run the demo that submits queries to OpenAI and demonstrates caching behavior accounting for model costs.
+2. **HuggingFace / local (free)** — Use a small local autoregressive model (e.g., `distilgpt2`) via `transformers` to emulate responses. This allows testing without paying for OpenAI.
+
+## How to run tests
+
+```bash
+# from repo root
+pytest -q
+```
+
+## How to run demo (OpenAI)
+
+```bash
+export OPENAI_API_KEY="sk-..."
+python demo/demo_run.py --provider openai
+```
+
+## How to run demo (local/HuggingFace)
+
+```bash
+python demo/demo_run.py --provider hf
+```
+
+## Benchmark
+
+```bash
+bash run_benchmarks.sh
+```
+
+The benchmark script will run several workload shapes and print CSV results comparing LRU and Cost-Aware caches.
+```
+
+---
+
+# Demo script: `demo/demo_run.py`
+
+Create directory `demo/` and file `demo/demo_run.py` with the code below.
+
+```python
+"""Demo runner for cost-aware cache behavior.
+
+Usage:
+  python demo_run.py --provider openai   # needs OPENAI_API_KEY
+  python demo_run.py --provider hf       # uses local transformers model
+
+The script will:
+ - set up a cost-aware cache (via the available factory or legacy class)
+ - insert synthetic queries with associated model metadata
+ - run repeated accesses to exercise hit/miss and show cost-saved metrics
+"""

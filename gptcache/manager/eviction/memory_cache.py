@@ -49,11 +49,16 @@ class MemoryCacheEviction(EvictionBase):
             self._cache = cachetools.FIFOCache(maxsize=maxsize, **kwargs)
         elif self._policy == "RR":
             self._cache = cachetools.RRCache(maxsize=maxsize, **kwargs)
-        elif self._policy == "COSTAWARE":
-            self._cache = CostAwarePolicy(
+        elif self._policy == "COST_AWARE":
+            # cost_aware adapter behaves like cachetools cache and implements popitem()
+            from gptcache.manager.eviction.cost_aware import make_cost_aware_cache
+            # pass on_evict and clean_size if you want; MemoryCacheEviction will wrap popitem
+            self._cache = make_cost_aware_cache(
                 maxsize=maxsize,
-                alpha=kwargs.get("alpha", 1.0),
-                beta=kwargs.get("beta", 1.0)
+                on_evict=on_evict,
+                # If you have a function that fetches metadata by key, pass it via kwargs:
+                # fetch_metadata=kwargs.pop("fetch_metadata", None),
+                **kwargs,
             )
         else:
             raise ValueError(f"Unknown policy {policy}")
