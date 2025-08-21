@@ -28,16 +28,15 @@ import pickle
 import os
 import logging
 
-# Try importing MapDataManager from common locations in the project.
+
+# Robust import for MapDataManager
+import importlib
+MapDataManager = None
 try:
-    # Preferred: MapDataManager exported under manager.data_manager
-    from gptcache.manager.data_manager import MapDataManager
-except Exception:
-    # Fallback import path — adjust if your repo structure differs
-    try:
-        from gptcache.manager import MapDataManager  # type: ignore
-    except Exception:
-        raise ImportError("Could not import MapDataManager from gptcache.manager.data_manager or gptcache.manager")
+    module = importlib.import_module("gptcache.manager.data_manager")
+    MapDataManager = getattr(module, "MapDataManager")
+except (ImportError, AttributeError) as e:
+    raise ImportError("Could not import MapDataManager from gptcache.manager.data_manager. Error: {}".format(e))
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +67,9 @@ except Exception:
 
 
 class CostAwareDataManager(MapDataManager):
+    def put(self, key, value):
+        """Insert data into the cost-aware cache."""
+        self.data[key] = value
     """
     Map-style DataManager that uses a cost-aware in-memory container.
 

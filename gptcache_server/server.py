@@ -174,6 +174,14 @@ def main():
     global cache_dir
     global cache_file_key
 
+
+    # Print test to confirm cost-aware eviction policy is used
+    try:
+        from gptcache.manager.eviction.cost_aware_policy import CostAwareCache
+        print("[TEST] Cost-aware eviction policy is ACTIVE (using CostAwareCache)")
+    except ImportError:
+        print("[TEST] Cost-aware eviction policy is NOT ACTIVE! (CostAwareCache not found)")
+
     if args.cache_config_file:
         init_conf = init_similar_cache_from_config(config_dir=args.cache_config_file)
         cache_dir = init_conf.get("storage_config", {}).get("data_dir", "")

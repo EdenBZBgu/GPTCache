@@ -1,5 +1,5 @@
 from typing import Any, Callable, List
-from cost_aware_policy import CostAwarePolicy
+from gptcache.manager.eviction.cost_aware_policy import CostAwareCache
 import cachetools
 
 from gptcache.manager.eviction.base import EvictionBase

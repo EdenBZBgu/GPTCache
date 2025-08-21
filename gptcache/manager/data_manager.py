@@ -8,7 +8,7 @@ import requests
 
 from gptcache.manager.eviction import EvictionBase
 from gptcache.manager.eviction.distributed_cache import NoOpEviction
-from gptcache.manager.cost_aware_data_manager import EvictionManager
+EvictionManager = None  # Will be imported when needed
 from gptcache.manager.object_data.base import ObjectBase
 from gptcache.manager.scalar_data.base import (
     CacheStorage,
@@ -236,18 +236,21 @@ class SSDataManager(DataManager):
         self.s = s
         self.v = v
         self.o = o
-        self.eviction_manager = EvictionManager(self.s, self.v)
-        if e is None:
-            e = EvictionBase(name="memory",
-                             maxsize=max_size,
-                             clean_size=clean_size,
-                             policy=policy,
-                             on_evict=self._clear)
-        self.eviction_base = e
-
-        if not isinstance(self.eviction_base, NoOpEviction):
-            # if eviction manager is no op redis, we don't need to put data into eviction base
-            self.eviction_base.put(self.s.get_ids(deleted=False))
+        # Implement cost-aware eviction using CostAwareDataManager
+        from gptcache.manager.cost_aware_data_manager import CostAwareDataManager
+        self.eviction_manager = CostAwareDataManager(
+            data_path="cost_aware_cache.pkl",
+            max_size=max_size,
+            cost_function=None,  # You can pass a custom cost function if needed
+            strategy="heuristic",
+            cost_weight=1.0,
+            frequency_weight=0.5,
+            recency_weight=0.3,
+            ewma_alpha=0.1,
+            vector_store=v
+        )
+        self.eviction_base = self.eviction_manager
+        print("[INFO] Cost-aware eviction policy is now ACTIVE for this cache instance.")
 
     def _clear(self, marked_keys):
         self.eviction_manager.soft_evict(marked_keys)
@@ -283,7 +286,7 @@ class SSDataManager(DataManager):
         new_ans = []
         for ans in answers:
             if ans.answer_type != DataType.STR:
-                new_ans.append(Answer(self.o.put(ans.answer), ans.answer_type))
+                    new_ans.append(Answer(self.o.put(ans.answer, ans.answer), ans.answer_type))
             else:
                 new_ans.append(ans)
         return new_ans
@@ -295,7 +298,7 @@ class SSDataManager(DataManager):
 
             for dep in question.deps:
                 if dep.dep_type == DataType.IMAGE_URL:
-                    dep.dep_type.data = self.o.put(requests.get(dep.data).content)
+                        dep.dep_type.data = self.o.put(dep.data, requests.get(dep.data).content)
             return question
 
         return Question(question)
@@ -340,7 +343,8 @@ class SSDataManager(DataManager):
             ],
             **kwargs,
         )
-        self.eviction_base.put(ids)
+        for id in ids:
+            self.eviction_base.put(id, None)
 
     def get_scalar_data(self, res_data, **kwargs) -> Optional[CacheData]:
         session = kwargs.get("session", None)
@@ -369,7 +373,11 @@ class SSDataManager(DataManager):
         return cache_data
 
     def hit_cache_callback(self, res_data, **kwargs):
-        self.eviction_base.get(res_data[1])
+        # Use underlying cache's get method for cost-aware eviction
+        if hasattr(self.eviction_base, 'data') and hasattr(self.eviction_base.data, 'get'):
+            self.eviction_base.data.get(res_data[1])
+        else:
+            self.eviction_base.get(res_data[1])
 
     def search(self, embedding_data, **kwargs):
         embedding_data = normalize(embedding_data)
