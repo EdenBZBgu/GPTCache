@@ -117,25 +117,14 @@ def single_get(base_url, prompt, get_path="/get", put_path="/put", policy_param=
 
 
 def clear_server(base_url, policy_name=None, policy_param="policy", timeout=5.0):
-    """
-    POST /clear before each test. Try JSON payload with the server's policy param first
-    (e.g. {"policy": "lru"}), fall back to POST /clear with no body.
-    Returns True on a 2xx response, False otherwise.
-    """
     url = base_url.rstrip("/") + "/clear"
     # try payload with policy param when available
     try:
-        payload = {policy_param: policy_name} if policy_name else {}
-        r = requests.post(url, json=payload, timeout=timeout)
+        r = requests.post(url, timeout=timeout)
         if 200 <= getattr(r, "status_code", 0) < 300:
-            print(f"Clear succeeded with payload {payload} (status {r.status_code})")
+            print(f"Clear succeeded (status {r.status_code})")
             return True
-        # fallback: no body
-        r2 = requests.post(url, timeout=timeout)
-        if 200 <= getattr(r2, "status_code", 0) < 300:
-            print(f"Clear succeeded (no body) (status {r2.status_code})")
-            return True
-        print(f"Clear attempts failed: {getattr(r, 'status_code', 'err')} / {getattr(r2, 'status_code', 'err')}")
+        print(f"Clear attempt failed: {getattr(r, 'status_code', 'err')} / {getattr(r, 'status_code', 'err')}")
     except Exception as e:
         print(f"Clear exception: {e}")
     return False
