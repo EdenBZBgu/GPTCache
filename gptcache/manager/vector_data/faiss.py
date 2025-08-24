@@ -56,6 +56,9 @@ class Faiss(VectorBase):
     def flush(self):
         faiss.write_index(self._index, self._index_file_path)
 
+    def clear(self):
+        self._index.reset()
+
     def close(self):
         self.flush()
 

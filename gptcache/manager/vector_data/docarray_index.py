@@ -83,5 +83,8 @@ class DocArrayIndex(VectorBase):
     def flush(self) -> None:
         self._index.persist(self._index_file_path)
 
+    def clear(self) -> None:
+        self._index.clear()
+
     def close(self) -> None:
         self.flush()

@@ -204,6 +204,15 @@ class Milvus(VectorBase):
     def flush(self):
         self.col.flush(_async=True)
 
+    def clear(self):
+        """Clear all in-memory data without persisting it."""
+        # Drop and recreate the collection to clear all data
+        try:
+            self.col.drop()
+        except Exception:
+            pass  # Collection might not exist
+        self._create_collection(self.col.name)
+
     def close(self):
         self.flush()
         if self._local_mode:

@@ -71,5 +71,16 @@ class Hnswlib(VectorBase):
     def flush(self):
         self._index.save_index(self._index_file_path)
 
+    # def clear(self):
+    #     """Clear all in-memory data without persisting it."""
+    #     # Recreate the index to clear all data
+    #     import hnswlib
+    #     self._index = hnswlib.Index(space='l2', dim=self._dimension)
+    #     self._index.init_index(max_elements=self._max_elements, ef_construction=self._ef_construction, M=self._M)
+    #     self._index.set_ef(self._ef)
+
+    def clear(self):
+        self._index.reset()
+
     def close(self):
         self.flush()

@@ -264,6 +264,28 @@ class CostAwareDataManager(MapDataManager):
         except Exception as e:
             logger.exception("Failed to flush CostAwareDataManager to %s: %s", self.data_path, e)
 
+    def clear(self):
+        """Clear all data from the container and optionally the vector store."""
+        if hasattr(self.data, "clear") and callable(getattr(self.data, "clear")):
+            try:
+                self.data.clear()
+            except Exception:
+                logger.exception("Failed to clear cost-aware container; falling back to empty dict.")
+                self.data = {}
+        else:
+            self.data = {}
+
+        # If we have a vector store, we might want to clear it too.
+        if self.vector_store is not None:
+            try:
+                clear_method = getattr(self.vector_store, "clear", None)
+                if callable(clear_method):
+                    clear_method()
+                else:
+                    logger.warning("Vector store does not have a clear() method; skipping vector store clear.")
+            except Exception:
+                logger.exception("Failed to clear vector store during CostAwareDataManager.clear().")
+
     def _create_container(self, size: int):
         """Create a new cost-aware container with current settings (used by init/ctor)."""
         if COST_AWARE_FACTORY:

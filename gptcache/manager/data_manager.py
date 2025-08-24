@@ -59,6 +59,9 @@ class DataManager(metaclass=ABCMeta):
     def flush(self):
         pass
 
+    def clear(self):
+        pass
+
     @abstractmethod
     def add_session(self, res_data, session_id, pre_embedding_data):
         pass
@@ -181,6 +184,9 @@ class MapDataManager(DataManager):
                 "You don't have permission to access this file %s.", self.data_path
             )
 
+    def clear(self):
+        self.data.clear()
+
     def add_session(self, res_data, session_id, pre_embedding_data):
         res_data[3].add(session_id)
 
@@ -202,6 +208,9 @@ class MapDataManager(DataManager):
 
     def close(self):
         self.flush()
+
+    def clear(self):
+        self.data.clear()
 
 
 def normalize(vec):
@@ -387,6 +396,13 @@ class SSDataManager(DataManager):
     def flush(self):
         self.s.flush()
         self.v.flush()
+
+    def clear(self):
+        self.s.clear()
+        self.v.clear()
+        if self.o:
+            self.o.clear()
+        self.eviction_base.clear()
 
     def add_session(self, res_data, session_id, pre_embedding_data):
         self.s.add_session(res_data[1], session_id, pre_embedding_data)

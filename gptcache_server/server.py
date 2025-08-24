@@ -57,6 +57,14 @@ async def flush_cache() -> str:
     cache.flush()
     return "successfully flush the cache"
 
+@app.post("/clear")
+async def clear_cache() -> str:
+    cache.clear()
+
+    if openai_cache is not None:
+        openai_cache.clear()
+    return "successfully clear the cache"
+
 
 @app.get("/cache_file")
 async def get_cache_file(key: str = "") -> FileResponse:

@@ -33,6 +33,12 @@ class VectorBase(ABC):
     def flush(self):
         pass
 
+    def clear(self):
+        pass
+
+    def clear(self):
+        pass
+
     def close(self):
         pass
 

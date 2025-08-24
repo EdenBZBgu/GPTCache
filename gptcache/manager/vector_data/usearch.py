@@ -80,6 +80,9 @@ class USearch(VectorBase):
     def flush(self):
         self._index.save(self._index_file_path)
 
+    def clear(self):
+        self._index.reset()
+
     def close(self):
         self.flush()
 

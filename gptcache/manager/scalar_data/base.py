@@ -132,6 +132,9 @@ class CacheStorage(metaclass=ABCMeta):
     def flush(self):
         pass
 
+    def clear(self):
+        pass
+
     @abstractmethod
     def add_session(self, question_id, session_id, session_question):
         pass

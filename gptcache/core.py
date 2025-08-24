@@ -112,6 +112,12 @@ class Cache:
         if self.next_cache:
             self.next_cache.data_manager.flush()
 
+    def clear(self):
+        """Clear all the cache data."""
+        self.data_manager.clear()
+        if self.next_cache:
+            self.next_cache.data_manager.clear()
+
     @staticmethod
     def set_openai_key():
         import_openai()

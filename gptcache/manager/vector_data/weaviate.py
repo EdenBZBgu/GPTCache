@@ -149,6 +149,9 @@ class Weaviate(VectorBase):
     def flush(self):
         self.client.batch.flush()
 
+    def clear(self):
+        self.delete(ids=[data["data_id"] for data in self.client.query.get(self.class_name, ["data_id"]).do()["data"]["Get"][self.class_name]])
+
     def close(self):
         self.flush()
 

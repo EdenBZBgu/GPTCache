@@ -116,35 +116,35 @@ def single_get(base_url, prompt, get_path="/get", put_path="/put", policy_param=
 # ----------------------------- Server helpers -----------------------------
 
 
-def flush_server(base_url, policy_name=None, policy_param="policy", timeout=5.0):
+def clear_server(base_url, policy_name=None, policy_param="policy", timeout=5.0):
     """
-    POST /flush before each test. Try JSON payload with the server's policy param first
-    (e.g. {"policy": "lru"}), fall back to POST /flush with no body.
+    POST /clear before each test. Try JSON payload with the server's policy param first
+    (e.g. {"policy": "lru"}), fall back to POST /clear with no body.
     Returns True on a 2xx response, False otherwise.
     """
-    url = base_url.rstrip("/") + "/flush"
+    url = base_url.rstrip("/") + "/clear"
     # try payload with policy param when available
     try:
         payload = {policy_param: policy_name} if policy_name else {}
         r = requests.post(url, json=payload, timeout=timeout)
         if 200 <= getattr(r, "status_code", 0) < 300:
-            print(f"Flush succeeded with payload {payload} (status {r.status_code})")
+            print(f"Clear succeeded with payload {payload} (status {r.status_code})")
             return True
         # fallback: no body
         r2 = requests.post(url, timeout=timeout)
         if 200 <= getattr(r2, "status_code", 0) < 300:
-            print(f"Flush succeeded (no body) (status {r2.status_code})")
+            print(f"Clear succeeded (no body) (status {r2.status_code})")
             return True
-        print(f"Flush attempts failed: {getattr(r, 'status_code', 'err')} / {getattr(r2, 'status_code', 'err')}")
+        print(f"Clear attempts failed: {getattr(r, 'status_code', 'err')} / {getattr(r2, 'status_code', 'err')}")
     except Exception as e:
-        print(f"Flush exception: {e}")
+        print(f"Clear exception: {e}")
     return False
 
 
 # ----------------------------- Benchmark runner -----------------------------
 
 
-def run_workload(base_url, prompts, policy_name, concurrency=8, policy_param="policy", get_path="/get", put_path="/put", max_workers=16):
+def run_workload(base_url, prompts, policy_name, concurrency=8, policy_param="policy", get_path="/get", put_path="/put"):
     client_proc = psutil.Process()
     metrics = {
         "hits": 0,
@@ -183,20 +183,20 @@ def run_workload(base_url, prompts, policy_name, concurrency=8, policy_param="po
     return metrics
 
 
-def run_benchmarks(base_url, prompts, policies, workloads, concurrency=8, policy_param="policy"):
+def run_benchmarks(base_url, policies, workloads, concurrency=8, policy_param="policy"):
     """Run a suite of workloads for each policy.
 
-    Before running each (policy, workload) combination, POST /flush is called (tries policy payload then no-body fallback).
+    Before running each (policy, workload) combination, POST /Clear is called (tries policy payload then no-body fallback).
     """
     results = defaultdict(dict)
     for policy in policies:
         for wname, wprompts in workloads:
             print(f">> Policy={policy} | Workload={wname} | Requests={len(wprompts)} | Concurrency={concurrency}")
 
-            # flush before each test
-            flushed = flush_server(base_url, policy_name=policy, policy_param=policy_param)
-            if not flushed:
-                print(f"Warning: flush did not return success for policy={policy}, workload={wname}. Continuing anyway.")
+            # Clear before each test
+            cleared = clear_server(base_url, policy_name=policy, policy_param=policy_param)
+            if not cleared:
+                print(f"Warning: Clear did not return success for policy={policy}, workload={wname}. Continuing anyway.")
 
             metrics = run_workload(base_url, wprompts, policy, concurrency=concurrency, policy_param=policy_param)
 
@@ -215,7 +215,6 @@ def run_benchmarks(base_url, prompts, policies, workloads, concurrency=8, policy
 
 
 def visualize_grid(results, policies, workloads_order):
-    n_workloads = len(workloads_order)
     agg = {}
     for p in policies:
         agg[p] = {

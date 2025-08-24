@@ -140,5 +140,8 @@ class QdrantVectorStore(VectorBase):
         # no need to flush manually as qdrant flushes automatically based on the optimizers_config for remote Qdrant
         pass
 
+    def clear(self):
+        self.rebuild()
+
     def close(self):
         self.flush()

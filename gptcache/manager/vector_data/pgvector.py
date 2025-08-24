@@ -167,5 +167,10 @@ class PGVector(VectorBase):
         with self._session() as session:
             session.flush()
 
+    def clear(self):
+        with self._session() as session:
+            session.query(self._store).delete()
+            session.commit()
+
     def close(self):
         self.flush()
