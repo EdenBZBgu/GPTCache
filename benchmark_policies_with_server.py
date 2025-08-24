@@ -1,11 +1,32 @@
 #!/usr/bin/env python3
 """
-benchmark_policies_with_server_refactored.py
+benchmark_policies_with_server.py
 
-Refactored version of the user's original harness.
-Behavior is unchanged — this file keeps all logic, endpoints, payloads,
-and printed messages identical to the original script. Only formatting,
-docstrings, and minor organization were improved for readability.
+Enhanced benchmark + visualization harness for GPTCache policies.
+
+Features:
+ - Assumes a local GPTCache server is already running (configurable host & port with sensible defaults).
+ - Waits for readiness by probing common HTTP endpoints (/health, /ready, /stats, /)
+ - Runs multiple workloads (unique/sequential, repeated-hotset, zipfian, burst, concurrent)
+ - Compares multiple policies (default: cost_aware, lru, fifo) by instructing server via `policy` field
+ - Collects: hits, misses, evictions, latencies, throughput, memory usage of client
+ - Visualizes results in an attractive 2x3 matplotlib grid (no files written by default)
+ - Clean CLI with sensible defaults for quick runs.
+
+Usage (defaults are sensible so you can run with minimal args):
+    python benchmark_policies_with_server.py --dataset synthetic_datasets/prompts_25MB.jsonl
+
+Advanced example:
+    python benchmark_policies_with_server.py \
+        --dataset synthetic_datasets/prompts_25MB.jsonl \
+        --host 127.0.0.1 --port 8000 \
+        --policies cost_aware lru fifo \
+        --max-prompts 2000 --concurrency 16
+
+Notes:
+ - The script expects a running GPTCache server at the provided host & port.
+ - The server is expected to accept POST /get and POST /put endpoints like your example. It should accept an optional `policy` field in the JSON to select eviction behavior; if your server expects a different mechanism, pass `--policy-param KEY` to change the key name.
+
 """
 
 import argparse
