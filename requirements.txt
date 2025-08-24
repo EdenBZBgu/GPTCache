@@ -1,3 +1,5 @@
+psutil
+matplotlib
 numpy
 cachetools
 requests
