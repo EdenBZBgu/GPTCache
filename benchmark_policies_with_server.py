@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """
-Refactored GPTCache benchmark runner.
+Refactored GPTCache benchmark runner (payload format fixed).
 
-- Flushes cache (POST /flush) before each policy run.
-- Uses requests.Session with retries.
-- Encapsulates HTTP in CacheClient.
+- POST /put now sends JSON payload {"prompt": key} as requested.
+- Flush still tries POST /flush with {"namespace": ...} then a no-body fallback.
 """
 
 import argparse
@@ -42,6 +41,9 @@ class CacheClient:
     """
     Simple HTTP client wrapper for cache server endpoints.
     Uses requests.Session with retries for robustness.
+
+    NOTE: `put` sends JSON payload {"prompt": key} (no "answer" field) to match the server
+    behaviour you requested.
     """
 
     def __init__(self, host: str = "127.0.0.1", port: int = 8000, timeout: float = 5.0):
@@ -63,9 +65,14 @@ class CacheClient:
             logger.debug("Cache GET error for key %s: %s", key, e)
         return None
 
-    def put(self, key: str, value: str) -> None:
+    def put(self, key: str, value: Optional[str] = None) -> None:
+        """
+        Sends a POST /put with JSON payload {"prompt": key}.
+        The `value` argument is accepted for compatibility but not sent.
+        """
         try:
-            self.session.post(self._url("/put"), json={"prompt": key, "answer": value}, timeout=self.timeout)
+            # IMPORTANT: payload contains only the "prompt" key per server expectation
+            self.session.post(self._url("/put"), json={"prompt": key}, timeout=self.timeout)
         except Exception as e:
             logger.debug("Cache PUT error for key %s: %s", key, e)
 
