@@ -37,7 +37,7 @@ GPTCache eviction policy implementations.
 """
 
 from typing import Any, Dict, Callable
-from .cost_aware_policy import CostAwareCache, cost_aware_cache_factory
+from .cost_aware import CostAwareCacheAdapter, make_cost_aware_cache
 
 # Import existing eviction policies
 try:
@@ -75,7 +75,7 @@ def ttl_cache_factory(maxsize: int = 1000, ttl: int = 600, **kwargs) -> Any:
 
 # Eviction policy registry with consistent factory function types
 EVICTION_POLICIES: Dict[str, Callable[[int], Any]] = {
-    'cost_aware': cost_aware_cache_factory,
+    'cost_aware': make_cost_aware_cache,
 }
 
 if CACHETOOLS_AVAILABLE:
@@ -106,4 +106,4 @@ def get_eviction_policy(policy_name: str, maxsize: int = 1000, **kwargs) -> Any:
     return policy_factory(maxsize=maxsize, **kwargs)
 
 
-__all__ = ['CostAwareCache', 'cost_aware_cache_factory', 'get_eviction_policy', 'EVICTION_POLICIES']
+__all__ = ['CostAwareCache', 'make_cost_aware_cache', 'get_eviction_policy', 'EVICTION_POLICIES']
