@@ -57,10 +57,23 @@ class CacheClient:
         return f"{self.base_url}{path}"
 
     def get(self, key: str) -> Optional[str]:
+        """
+        Fetch a value for `key` from the cache server.
+
+        Use POST /get with JSON payload {"prompt": key} as the primary method to avoid
+        URL-length issues and to match servers that expect JSON POSTs. If the POST fails
+        or returns non-200, fall back to GET /get?prompt=... for compatibility.
+        """
         try:
-            r = self.session.get(self._url("/get"), params={"prompt": key}, timeout=self.timeout)
+            # Preferred: POST with JSON body to avoid very long query strings and 405s
+            r = self.session.post(self._url("/get"), json={"prompt": key}, timeout=self.timeout)
             if r.status_code == 200 and r.text.strip():
                 return r.text
+            # Fallback: try GET (some servers still accept query param GETs)
+            r2 = self.session.get(self._url("/get"), params={"prompt": key}, timeout=self.timeout)
+            if r2.status_code == 200 and r2.text.strip():
+                return r2.text
+            logger.debug("GET/POST /get returned non-200: %s / %s", getattr(r, 'status_code', None), getattr(r2, 'status_code', None))
         except Exception as e:
             logger.debug("Cache GET error for key %s: %s", key, e)
         return None
