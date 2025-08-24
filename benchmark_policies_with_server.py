@@ -6,7 +6,6 @@ Enhanced benchmark + visualization harness for GPTCache policies.
 
 Features:
  - Assumes a local GPTCache server is already running (configurable host & port with sensible defaults).
- - Waits for readiness by probing common HTTP endpoints (/health, /ready, /stats, /)
  - Runs multiple workloads (unique/sequential, repeated-hotset, zipfian, burst, concurrent)
  - Compares multiple policies (default: cost_aware, lru, fifo) by instructing server via `policy` field
  - Collects: hits, misses, evictions, latencies, throughput, memory usage of client
@@ -244,7 +243,7 @@ def run_benchmarks(base_url: str, policies: List[str], workloads: List[Tuple[str
     """
     Run the suite of workloads for each policy.
     This function preserves the original behavior: calls clear_server before each test,
-    runs run_workload, and attempts to fetch /stats afterwards.
+    runs run_workload. Removed any usage of /stats as requested.
     """
     results = defaultdict(dict)
     for policy in policies:
@@ -258,13 +257,7 @@ def run_benchmarks(base_url: str, policies: List[str], workloads: List[Tuple[str
 
             metrics = run_workload(base_url, wprompts, policy, concurrency=concurrency, policy_param=policy_param)
 
-            try:
-                s = requests.get(base_url.rstrip("/") + "/stats", params={policy_param: policy}, timeout=2.0)
-                js = try_json(s)
-                if js:
-                    metrics["server_stats"] = js
-            except Exception:
-                metrics["server_stats"] = None
+            # NOTE: /stats usage removed entirely per request; we do not query or store server_stats.
             results[policy][wname] = metrics
     return results
 
@@ -273,7 +266,7 @@ def run_benchmarks(base_url: str, policies: List[str], workloads: List[Tuple[str
 
 
 def visualize_grid(results: Dict[str, Dict], policies: List[str], workloads_order: List[str]) -> None:
-    """Create the same 2x3 grid of plots as original file (unchanged logic)."""
+    """Create the same 2x3 grid of plots as original file (unchanged logic except server /stats usage removed)."""
     agg: Dict[str, Dict] = {}
     for p in policies:
         agg[p] = {
@@ -282,7 +275,6 @@ def visualize_grid(results: Dict[str, Dict], policies: List[str], workloads_orde
             "latencies_all": [],
             "timestamps_all": [],
             "client_mem_all": [],
-            "evictions": [],
         }
         for w in workloads_order:
             m = results[p].get(w, {})
@@ -297,9 +289,6 @@ def visualize_grid(results: Dict[str, Dict], policies: List[str], workloads_orde
                 agg[p]["latencies_all"].extend(lats)
             agg[p]["timestamps_all"].extend(m.get("timestamps", []))
             agg[p]["client_mem_all"].extend([x for x in m.get("client_memory", []) if x is not None])
-            srv = m.get("server_stats")
-            if srv and isinstance(srv, dict):
-                agg[p]["evictions"].append(srv.get("evictions", 0))
 
     fig, axs = plt.subplots(2, 3, figsize=(18, 10))
 
@@ -369,17 +358,8 @@ def visualize_grid(results: Dict[str, Dict], policies: List[str], workloads_orde
     ax.set_title("Client memory (MB) over time")
     ax.legend()
 
-    # 6: Evictions if available
     ax = axs[1, 2]
-    evict_avail = any(len(agg[p]["evictions"]) > 0 for p in policies)
-    if evict_avail:
-        for p in policies:
-            ev = agg[p]["evictions"]
-            ax.bar(p, sum(ev) if ev else 0)
-        ax.set_title("Sum of server-reported evictions per policy")
-    else:
-        ax.text(0.5, 0.5, "No server eviction stats available", ha="center", va="center")
-        ax.set_axis_off()
+    ax.set_axis_off()
 
     plt.tight_layout()
     plt.show()
@@ -408,6 +388,7 @@ def main() -> None:
     parser.add_argument("--max-prompts", type=int, default=2000, help="max number of prompts to use")
     parser.add_argument("--concurrency", type=int, default=8, help="concurrency for executor")
     parser.add_argument("--policy-param", default="policy", help="JSON key used to tell server which policy to use")
+    parser.add_argument("--all-lines", action="store_true", default=False, help="Include an 'all_lines' workload that iterates the entire dataset (default: False)")
     args = parser.parse_args()
 
     prompts = load_prompts(args.dataset, max_prompts=args.max_prompts)
@@ -422,9 +403,10 @@ def main() -> None:
 
     workloads = build_workloads(prompts, args.max_prompts)
 
-    # NEW: add an "all_lines" workload that iterates the entire dataset file (no limit)
-    all_lines_prompts = load_prompts(args.dataset, max_prompts=None)
-    workloads.append(("all_lines", all_lines_prompts))
+    # NEW: all_lines is optional via --all-lines (default False)
+    if args.all_lines:
+        all_lines_prompts = load_prompts(args.dataset, max_prompts=None)
+        workloads.append(("all_lines", all_lines_prompts))
 
     results = run_benchmarks(base_url, args.policies, workloads, concurrency=args.concurrency, policy_param=args.policy_param)
 
@@ -439,9 +421,7 @@ def main() -> None:
             misses = m.get("misses", 0)
             total = hits + misses
             avg_lat = sum(m.get("latencies", [0])) / max(1, len(m.get("latencies", [])))
-            srv = m.get("server_stats")
-            ev = srv.get("evictions") if srv and isinstance(srv, dict) else None
-            print(f"policy={p:12} workload={w:12} requests={total:6} hit_ratio={hits/max(1,total):.2%} avg_lat={avg_lat:.4f}s evictions={ev}")
+            print(f"policy={p:12} workload={w:12} requests={total:6} hit_ratio={hits/max(1,total):.2%} avg_lat={avg_lat:.4f}s")
 
 
 if __name__ == "__main__":
