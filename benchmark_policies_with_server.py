@@ -13,11 +13,11 @@ Features:
  - Clean CLI with sensible defaults for quick runs.
 
 Usage (defaults are sensible so you can run with minimal args):
-    python benchmark_policies_with_server.py --dataset synthetic_datasets/prompts_25MB.jsonl
+    python benchmark_policies_with_server.py --dataset synthetic_datasets/prompts_40k.jsonl
 
 Advanced example:
     python benchmark_policies_with_server.py \
-        --dataset synthetic_datasets/prompts_25MB.jsonl \
+        --dataset synthetic_datasets/prompts_40k.jsonl \
         --host 127.0.0.1 --port 8000 \
         --policies cost_aware lru fifo \
         --max-prompts 2000 --concurrency 16

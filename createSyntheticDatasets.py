@@ -66,22 +66,14 @@ def generate_prompt():
     else:
         return generate_short_prompt()
 
-def generate_dataset(target_mb, output_path):
-    target_bytes = target_mb * 1024 * 1024
-    written_bytes = 0
-    count = 0
-
+def generate_dataset(num_prompts, output_path):
     with open(output_path, "w", encoding="utf-8") as f:
-        while written_bytes < target_bytes:
+        for _ in range(num_prompts):
             prompt = generate_prompt()
             json_line = json.dumps({"prompt": prompt}, ensure_ascii=False) + "\n"
             f.write(json_line)
-            written_bytes += len(json_line.encode("utf-8"))
-            count += 1
-
-    print(f"✅ Generated {count} prompts totaling ~{target_mb} MB in {output_path}")
+    print(f"✅ Generated {num_prompts} prompts in {output_path}")
 
 if __name__ == "__main__":
-    for size in TARGET_SIZES_MB:
-        filename = os.path.join(OUTPUT_DIR, f"prompts_{size}MB.jsonl")
-        generate_dataset(size, filename)
+    filename = os.path.join(OUTPUT_DIR, "prompts_40k.jsonl")
+    generate_dataset(40000, filename)
