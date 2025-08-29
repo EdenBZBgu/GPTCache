@@ -82,8 +82,9 @@ def load_prompts(path: str, max_prompts: Optional[int] = None) -> List[str]:
 
 
 def workload_unique(prompts: List[str]) -> List[str]:
-    """Each request is a unique prompt (simple copy)."""
-    return list(prompts)
+    """Each request is a unique prompt loaded from all_unique_prompts.jsonl."""
+    unique_prompts = load_prompts("synthetic_datasets/all_unique_prompts.jsonl")
+    return list(unique_prompts)
 
 
 def workload_repeated(prompts: List[str], hot_ratio: float = 0.1, repeats: int = 5) -> List[str]:
@@ -190,7 +191,8 @@ def clear_server(base_url: str, policy_name: Optional[str] = None, policy_param:
 
 # ----------------------------- Benchmark runner -----------------------------
 
-
+# The main benchmark runner function, using ThreadPoolExecutor for concurrency
+# Note: This function includes an internal function (worker) to keep state management simple.
 def run_workload(
     base_url: str,
     prompts: List[str],
@@ -211,42 +213,69 @@ def run_workload(
         "client_memory": [],
     }
 
+    # Worker function for each prompt
+    # We measure time here to capture total latency (Client perspective including network)
     def worker(prompt: str) -> Dict:
+        # Take time before request
         s = now()
+
+        # Call single_get to send request to server
         res = single_get(base_url, prompt, get_path=get_path, put_path=put_path, policy_param=policy_param, policy_name=policy_name)
+        
+        # Measure elapsed time
         elapsed = now() - s
+        
+        # Add measured latency to result (overrides server-reported latency)
         res["measured_latency"] = elapsed
         return res
 
+    # Use ThreadPoolExecutor to manage concurrency
     with ThreadPoolExecutor(max_workers=concurrency) as ex:
+        
+        # Submit all tasks
         futures = [ex.submit(worker, p) for p in prompts]
+        
+        # This loop aggregates results from all workers into the shared metrics
+        # Executed by main thread to avoid concurrency issues
         for fut in tqdm(as_completed(futures), total=len(futures), desc=f"policy={policy_name}"):
+            
+            # Try to get result, skip if exception
             try:
                 r = fut.result()
             except Exception:
                 continue
+
+            # 1. Aggregate hits/misses
             if r.get("hit"):
                 metrics["hits"] += 1
             else:
                 metrics["misses"] += 1
+
+            # 2. Aggregate latencies
+            # Use measured latency by client if available, else fallback to server-reported latency
             lat = r.get("measured_latency") or r.get("latency") or 0.0
             metrics["latencies"].append(lat)
+
+            # 3. Aggregate timestamps
             metrics["timestamps"].append(now())
+
+            # 4. Collecting client memory usage (in MB)
             try:
                 metrics["client_memory"].append(client_proc.memory_info().rss / (1024 * 1024))
             except Exception:
                 metrics["client_memory"].append(None)
     return metrics
 
+# ----------------------------- Main benchmark loop -----------------------------
 
+# Run the suite of workloads for each policy.
+# This function preserves the original behavior: calls clear_server before each test,
+# runs run_workload. Removed any usage of /stats as requested.
 def run_benchmarks(base_url: str, policies: List[str], workloads: List[Tuple[str, List[str]]], concurrency: int = 8, policy_param: str = "policy"):
-    """
-    Run the suite of workloads for each policy.
-    This function preserves the original behavior: calls clear_server before each test,
-    runs run_workload. Removed any usage of /stats as requested.
-    """
     results = defaultdict(dict)
     for policy in policies:
+
+        # Run each workload for this policy
         for wname, wprompts in workloads:
             print(f">> Policy={policy} | Workload={wname} | Requests={len(wprompts)} | Concurrency={concurrency}")
 
@@ -255,9 +284,10 @@ def run_benchmarks(base_url: str, policies: List[str], workloads: List[Tuple[str
             if not cleared:
                 print(f"Warning: Clear did not return success for policy={policy}, workload={wname}. Continuing anyway.")
 
+            # Run the workload
             metrics = run_workload(base_url, wprompts, policy, concurrency=concurrency, policy_param=policy_param)
 
-            # NOTE: /stats usage removed entirely per request; we do not query or store server_stats.
+            # For each policy and workload, store the metrics
             results[policy][wname] = metrics
     return results
 
@@ -294,19 +324,18 @@ def visualize_grid(results: Dict[str, Dict], policies: List[str], workloads_orde
 
     # 1: Hit ratio per workload (stacked bars)
     ax = axs[0, 0]
-    index = list(range(len(workloads_order)))
-    width = 0.6
-    for i, p in enumerate(policies):
+    for p in policies:
+        # Calculate hit ratio for each workload
         vals = [
             results[p][w]["hits"] / max(1, results[p][w]["hits"] + results[p][w]["misses"])
             if (results[p].get(w) and (results[p][w]["hits"] + results[p][w]["misses"]) > 0)
             else 0
             for w in workloads_order
         ]
-        ax.bar([x + i * width / len(policies) for x in index], vals, width / len(policies), label=p)
+        # Plot as a line instead of bars
+        ax.plot(workloads_order, vals, marker="o", label=p)
     ax.set_title("Hit ratio per workload")
-    ax.set_xticks([x + width / 2 for x in index])
-    ax.set_xticklabels(workloads_order)
+    ax.set_ylabel("Hit ratio")
     ax.set_ylim(0, 1)
     ax.legend()
 
@@ -349,13 +378,17 @@ def visualize_grid(results: Dict[str, Dict], policies: List[str], workloads_orde
     # 5: Client memory usage over time (smoothed)
     ax = axs[1, 1]
     for p in policies:
-        mem = agg[p]["client_mem_all"]
-        if not mem:
-            continue
-        window = max(1, int(len(mem) / 50))
-        smoothed = [sum(mem[max(0, i - window): i + 1]) / max(1, min(i + 1, window)) for i in range(len(mem))]
-        ax.plot(smoothed, label=p)
-    ax.set_title("Client memory (MB) over time")
+        
+        # Calculate average memory for each workload
+        vals = [
+            sum(results[p][w].get("client_memory", [0])) / max(1, len(results[p][w].get("client_memory", [])))
+            for w in workloads_order
+        ]
+        # Plot one line per policy, showing average memory across workload types
+        ax.plot(workloads_order, vals, marker="o", label=p)
+
+    ax.set_title("Average Client Memory (MB) per Workload")
+    ax.set_ylabel("Memory (MB)")
     ax.legend()
 
     ax = axs[1, 2]
