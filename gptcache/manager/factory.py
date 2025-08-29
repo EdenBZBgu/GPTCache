@@ -10,7 +10,7 @@ from gptcache.utils.log import gptcache_log
 
 def manager_factory(manager="map",
                     data_dir="./",
-                    max_size=1000,
+                    max_size=500,
                     eviction_manager: str = "memory",
                     get_data_container: Callable = None,
                     scalar_params=None,
