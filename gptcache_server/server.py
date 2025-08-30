@@ -194,6 +194,7 @@ def main():
     # Use cost-aware data manager with default similarity evaluator
     from gptcache.similarity_evaluation import ExactMatchEvaluation
     from gptcache.manager import manager_factory
+    # To use LRU (MapDataManager):
     lru_manager = manager_factory(
         "sqlite,faiss",
         data_dir=args.cache_dir,
@@ -204,6 +205,17 @@ def main():
         data_manager=lru_manager,
         evaluation=ExactMatchEvaluation()
     )
+
+    # costaware_manager = manager_factory(
+    #     "sqlite,faiss,cost_aware",
+    #     data_dir=args.cache_dir,
+    #     vector_params={"dimension": 768}
+    # )
+    # init_similar_cache(
+    #     data_dir=args.cache_dir,
+    #     data_manager=costaware_manager,
+    #     evaluation=ExactMatchEvaluation()
+    # )
     cache_dir = args.cache_dir
     cache_file_key = args.cache_file_key
 
