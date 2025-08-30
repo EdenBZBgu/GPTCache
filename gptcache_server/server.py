@@ -190,12 +190,21 @@ def main():
     except ImportError:
         print("[TEST] Cost-aware eviction policy is NOT ACTIVE! (CostAwareCache not found)")
 
-    if args.cache_config_file:
-        init_conf = init_similar_cache_from_config(config_dir=args.cache_config_file)
-        cache_dir = init_conf.get("storage_config", {}).get("data_dir", "")
-    else:
-        init_similar_cache(args.cache_dir)
-        cache_dir = args.cache_dir
+    from gptcache.manager import manager_factory
+    # Use cost-aware data manager with default similarity evaluator
+    from gptcache.similarity_evaluation import ExactMatchEvaluation
+    from gptcache.manager import manager_factory
+    lru_manager = manager_factory(
+        "sqlite,faiss",
+        data_dir=args.cache_dir,
+        vector_params={"dimension": 768}
+    )
+    init_similar_cache(
+        data_dir=args.cache_dir,
+        data_manager=lru_manager,
+        evaluation=ExactMatchEvaluation()
+    )
+    cache_dir = args.cache_dir
     cache_file_key = args.cache_file_key
 
     if args.openai:
